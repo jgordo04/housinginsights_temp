@@ -136,11 +136,12 @@ class WmataApiConn():
         for stop in data['Stops']:
 
             lines = ""
-            for rout in stop['Routes']:
-                lines = '{}:{}'.format(lines, rout)
+            for route in stop['Routes']:
+                lines = '{}'.format(lines)
+		stop_id_or_station_code = '{}'.format(route)
             lines = lines[1:] #take off the first :
 
-            infoCsvWriter.writerow((stop['StopID'], 'bus', stop['Name'], stop['Lat'],stop['Lon'], lines))
+            infoCsvWriter.writerow((stop['StopID'], 'bus', stop['Name'], stop['Lat'],stop['Lon'], lines, stop_id_or_station_code))
 
 
 def main(secretsFileName, csvInputFileName,distOutputFileName,infoOutputFileName):
@@ -161,7 +162,7 @@ def main(secretsFileName, csvInputFileName,distOutputFileName,infoOutputFileName
     #write out the wmata info csv
     infoOutputFile = open(infoOutputFileName, 'wt')
     infoCsvWriter = csv.writer(infoOutputFile)
-    infoCsvWriter.writerow(('code_or_id','type','name','lat','lon','lines'))
+    infoCsvWriter.writerow(('code_or_id','type','name','lat','lon','lines','stop_id_or_station_code'))
     #saving railStations to compute distances from each project later in the script. reduces network calls.
     railStations = writeRailInfo(infoCsvWriter, wmata_api_key)
     writeBusInfo(infoCsvWriter, wmata_api_key)
