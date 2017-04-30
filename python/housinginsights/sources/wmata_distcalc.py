@@ -27,7 +27,7 @@ class WmataApiConn():
         self.wmata_api_key = wmata_api_key
 
     def getWmataHeaders(self):
-        return { 'api_key': wmata_api_key}
+        return { 'api_key': self.wmata_api_key}
 
     def setMapBoxApiKey(self, mapbox_api_key):
         self.mapbox_api_key = {'access_token':mapbox_api_key}
@@ -114,7 +114,7 @@ class WmataApiConn():
             for line_code in ["LineCode2", "LineCode3", "LineCode4"]:
                 if station[line_code] != None:
                     lines += ":" + station[line_code]
-            infoCsVWriter.writerow((station['Code'], 'rail',station['Name'],str(station['Lat']), str(station['Lon']),lines))
+            infoCsvWriter.writerow((station['Code'], 'rail',station['Name'],str(station['Lat']), str(station['Lon']),lines))
 
         return railStations
 
@@ -138,7 +138,7 @@ class WmataApiConn():
             lines = ""
             for route in stop['Routes']:
                 lines = '{}'.format(lines)
-		stop_id_or_station_code = '{}'.format(route)
+		        stop_id_or_station_code = '{}'.format(route)
             lines = lines[1:] #take off the first :
 
             infoCsvWriter.writerow((stop['StopID'], 'bus', stop['Name'], stop['Lat'],stop['Lon'], lines, stop_id_or_station_code))
