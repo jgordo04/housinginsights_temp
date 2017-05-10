@@ -6,8 +6,9 @@ import os
 import time
 
 class WmataApiConn():
-    def __init__(self,wmata_api_key):
+    def __init__(self,wmata_api_key,mapbox_api_key):
         self.wmata_api_key = wmata_api_key
+        self.mapbox_api_key = {'access_token':mapbox_api_key}
 
     def getMiles(self):
         return self.miles
@@ -52,11 +53,11 @@ class WmataApiConn():
         return walkDistResponse.json()['routes'][0]['legs'][0]['distance']
 
     def setProjectInfo(self,project):
-        self.lat = project['Proj_lat']
-        self.lon = project['Proj_lon']
-        self.nlihcid = project['Nlihc_id']
+        self.lat = project['proj_lat']
+        self.lon = project['proj_lon']
+        self.nlihcid = project['nlihc_id']
 
-    def findRailStations(self, railStations,radiusinmeters,distCsvWriter):
+    def findRailStations(self, railStations,project,radiusinmeters,distCsvWriter):
         """Finds all the rail stations within a given distance from a given project.  Writes to the given CSV file.
 
         Parameters:
@@ -66,6 +67,7 @@ class WmataApiConn():
         distCsvWriter - csvWriter for distance
         mapbox_api_key - api key for mapbox REST services
         """
+
         lat = self.lat
         lon = self.lon
         Nlihc_id = self.nlihcid
@@ -74,9 +76,9 @@ class WmataApiConn():
             walkDist = self.getWalkingDistance(lat, lon, str(station['Lat']), str(station['Lon']))
 
             if walkDist <=radiusinmeters:
-                distCsvWriter.writerow((Nlihc_id, 'rail', station['Code'], "{0:.2f}".format(walkDist.getMiles())))
+                distCsvWriter.writerow((Nlihc_id, 'rail', station['Code'], "{0:.2f}".format(self.getMiles())))
 
-    def findBusStations(self, radiusinmeters, distCsvWriter):
+    def findBusStations(self, project,radiusinmeters, distCsvWriter):
         lat = self.lat
         lon = self.lon
         Nlihc_id = self.nlihcid
@@ -92,7 +94,7 @@ class WmataApiConn():
         for stop in data['Stops']:
             walkDist = self.getWalkingDistance(lat, lon, str(stop['Lat']), str(stop['Lon']))
             if walkDist <= radiusinmeters: #within 0.5 miles walking
-                distCsvWriter.writerow((Nlihc_id, 'bus', stop['StopID'], "{0:.2f}".format(walkDist.getMiles())))
+                distCsvWriter.writerow((Nlihc_id, 'bus', stop['StopID'], "{0:.2f}".format(self.getMiles())))
 
     def writeRailInfo(self, infoCsvWriter):
         """Writes all rail station data to a given CSV writer. Returns the railStations json for future processing
@@ -137,11 +139,16 @@ class WmataApiConn():
 
             lines = ""
             for route in stop['Routes']:
-                lines = '{}'.format(lines)
-		        stop_id_or_station_code = '{}'.format(route)
-            lines = lines[1:] #take off the first :
+#<<<<<<< HEAD
+        #lines = '{}:{}'.format(lines, route)
+		#stop_id_or_station_code = '{}'.format(route)
+#=======
+#                lines = '{}'.format(lines)
+#		        stop_id_or_station_code = '{}'.format(route)
+#>>>>>>> 588e912de31b7f50f7239af0bd4dfeaa693616bd
+#            lines = lines[1:] #take off the first :
 
-            infoCsvWriter.writerow((stop['StopID'], 'bus', stop['Name'], stop['Lat'],stop['Lon'], lines, stop_id_or_station_code))
+            infoCsvWriter.writerow((stop['StopID'], 'bus', stop['Name'], stop['Lat'],stop['Lon'], lines)) #, stop_id_or_station_code))
 
 
 def main(secretsFileName, csvInputFileName,distOutputFileName,infoOutputFileName):
@@ -164,8 +171,12 @@ def main(secretsFileName, csvInputFileName,distOutputFileName,infoOutputFileName
     infoCsvWriter = csv.writer(infoOutputFile)
     infoCsvWriter.writerow(('code_or_id','type','name','lat','lon','lines','stop_id_or_station_code'))
     #saving railStations to compute distances from each project later in the script. reduces network calls.
-    railStations = writeRailInfo(infoCsvWriter, wmata_api_key)
-    writeBusInfo(infoCsvWriter, wmata_api_key)
+
+    #Creat class object
+    newEntry = WmataApiConn(wmata_api_key,mapbox_api_key)
+
+    railStations = newEntry.writeRailInfo(infoCsvWriter)
+    newEntry.writeBusInfo(infoCsvWriter)
 
     projectsFile = open(csvInputFileName)
     distOutputFile = open(distOutputFileName, 'wt')
@@ -178,7 +189,9 @@ def main(secretsFileName, csvInputFileName,distOutputFileName,infoOutputFileName
     numrow = 0
 
     for row in reader:
-        radius = getMeters(0.5)
+        newEntry.setMeters(0.5)
+        radius = newEntry.getMeters()
+        newEntry.setProjectInfo(row)
 
         numrow = numrow+1
 
@@ -188,13 +201,13 @@ def main(secretsFileName, csvInputFileName,distOutputFileName,infoOutputFileName
 
         # find all metro stations within 0.5 miles
         print("Starting processing rail stations for {}".format(numrow))
-        findRailStations(railStations,row,radius,distCsvWriter, mapbox_api_key)
+        newEntry.findRailStations(railStations,row,radius,distCsvWriter)
         print("Completed processing rail stations for {}".format(numrow))
 
 
         # find all bus stops within 0.5 miles
         print("Starting processing bus stations for {}".format(numrow))
-        findBusStations(row, radius, distCsvWriter, wmata_api_key, mapbox_api_key)
+        newEntry.findBusStations(row, radius, distCsvWriter)
         print("Completed processing bus stations for {}".format(numrow))
 
 if __name__ == '__main__':
@@ -202,10 +215,10 @@ if __name__ == '__main__':
         print("Requires 1 arguments: [csv input file]")
     else:
         inputFileName = sys.argv[1]
-        secretsFileName = "../housinginsights/secrets.json"
+        secretsFileName = "../secrets.json"
 
         now = time.strftime("%Y%m%d")
-        outputDir = "../../data/raw/wmata/" + now
+        outputDir = "../../../data/raw/wmata/" + now
 
         if not os.path.exists(outputDir):
             os.makedirs(outputDir)
